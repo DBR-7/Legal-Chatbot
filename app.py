@@ -7,7 +7,7 @@ from groq import Groq
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceBgeEmbeddings
+from langchain_huggingface.embeddings import HuggingFaceBgeEmbeddings
 
 # --- CONFIGURATION ---
 # IMPORTANT: For deployment, ensure GROQ_API_KEY is set as a
@@ -252,4 +252,5 @@ if prompt := st.chat_input("Ask a legal question..."):
     # Add assistant response to chat history
 
     st.session_state.messages.append({"role": "assistant", "content": response})
+
 
