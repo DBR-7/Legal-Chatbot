@@ -1,4 +1,4 @@
-import streamlit as st
+ import streamlit as st
 import os
 import io
 from groq import Groq
@@ -16,7 +16,7 @@ except (KeyError, AttributeError):
     GROQ_API_KEY = os.environ.get("GROQ_API_KEY", None)
 
 # You MUST include the PDF inside your repo!
-BASE_KNOWLEDGE_PATH = "https://github.com/DBR-7/Legal-Chatbot/blob/main/Indian_penal_code.pdf"
+BASE_KNOWLEDGE_PATH = "Indian_penal_code.pdf"
 
 
 class DualLegalRAG:
@@ -187,3 +187,4 @@ if prompt := st.chat_input("Ask a legal question..."):
         st.markdown(answer)
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
+
