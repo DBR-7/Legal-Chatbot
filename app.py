@@ -21,7 +21,7 @@ except (KeyError, AttributeError):
 # Path to your STATIC "Behind the Scenes" Legal Knowledge
 # On a cloud environment like Streamlit, you should typically
 # upload this file to the repo and reference it directly.
-BASE_KNOWLEDGE_PATH = "Indian_penal_code.pdf"
+BASE_KNOWLEDGE_PATH = "https://github.com/DBR-7/Legal-Chatbot/blob/main/Indian_penal_code.pdf"
 # You MUST include a copy of 'Indian_penal_code.pdf' in the same
 # directory as this script in your GitHub repository.
 
@@ -250,4 +250,5 @@ if prompt := st.chat_input("Ask a legal question..."):
         st.markdown(response)
     
     # Add assistant response to chat history
+
     st.session_state.messages.append({"role": "assistant", "content": response})
