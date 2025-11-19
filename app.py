@@ -252,3 +252,4 @@ if prompt := st.chat_input("Ask a legal question..."):
     # Add assistant response to chat history
 
     st.session_state.messages.append({"role": "assistant", "content": response})
+
