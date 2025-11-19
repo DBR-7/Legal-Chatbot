@@ -1,4 +1,4 @@
- import streamlit as st
+import streamlit as st
 import os
 import io
 from groq import Groq
@@ -187,4 +187,5 @@ if prompt := st.chat_input("Ask a legal question..."):
         st.markdown(answer)
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
+
 
