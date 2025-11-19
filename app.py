@@ -10,9 +10,9 @@ from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 
 
-# ==============================
-#          CONFIG
-# ==============================
+# =======================================
+#              CONFIG
+# =======================================
 BASE_KNOWLEDGE_PATH = "Indian_penal_code.pdf"
 
 try:
@@ -21,69 +21,68 @@ except Exception:
     GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 
-# ==============================
-#        Dual RAG Class
-# ==============================
+# =======================================
+#   CACHED BASE LAW LOADER (TOP-LEVEL)
+# =======================================
+@st.cache_resource
+def load_base_law(embedding_model, pdf_path):
+    """
+    Loads the Indian Penal Code (IPC) PDF into a FAISS vector DB.
+    IMPORTANT: This must NOT be a class method.
+    """
+
+    if not os.path.exists(pdf_path):
+        st.error(f"Base PDF missing in repo: {pdf_path}")
+        return None
+
+    with st.spinner("Loading Indian Penal Code…"):
+        docs = PyPDFLoader(pdf_path).load()
+
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=800, chunk_overlap=100
+    )
+    chunks = splitter.split_documents(docs)
+
+    db = FAISS.from_documents(chunks, embedding_model)
+
+    st.success(f"IPC Loaded Successfully ({len(chunks)} chunks)")
+    return db
+
+
+# =======================================
+#           DUAL RAG ENGINE
+# =======================================
 class DualLegalRAG:
 
     def __init__(self):
-        # Embeddings Model
+        # Embedding model
         self.embeddings = HuggingFaceEmbeddings(
             model_name="BAAI/bge-small-en-v1.5",
             encode_kwargs={"normalize_embeddings": True},
         )
 
-        # Groq model
+        # Groq client
         if not GROQ_API_KEY:
             st.error("Missing GROQ_API_KEY")
             st.stop()
 
         self.client = Groq(api_key=GROQ_API_KEY)
 
-        # Vector DBs in session
+        # Session vector DBs
         if "base_db" not in st.session_state:
             st.session_state.base_db = None
         if "user_db" not in st.session_state:
             st.session_state.user_db = None
 
-        # Load IPC once
+        # Load IPC only once (cached)
         if st.session_state.base_db is None:
-            self.load_base_law(self)
-
-    # ---------------------------
-    #    CACHE: Base IPC Law
-    # ---------------------------
-    @st.cache_resource
-    def load_base_law(_self):
-        """Loads the base Indian Penal Code PDF into a FAISS vector DB."""
-
-        if not os.path.exists(BASE_KNOWLEDGE_PATH):
-            st.error("IPC PDF is missing in the repo!")
-            return None
-
-        try:
-            with st.spinner("Loading Indian Penal Code…"):
-                docs = PyPDFLoader(BASE_KNOWLEDGE_PATH).load()
-
-            splitter = RecursiveCharacterTextSplitter(
-                chunk_size=800,
-                chunk_overlap=100
+            st.session_state.base_db = load_base_law(
+                self.embeddings,
+                BASE_KNOWLEDGE_PATH
             )
 
-            chunks = splitter.split_documents(docs)
-
-            base_db = FAISS.from_documents(chunks, _self.embeddings)
-            st.session_state.base_db = base_db
-
-            st.success(f"IPC Loaded Successfully ({len(chunks)} chunks)")
-            return base_db
-
-        except Exception as e:
-            st.error(f"IPC Load Error: {e}")
-            return None
-
     # ---------------------------
-    #      USER UPLOADED PDF
+    #      USER UPLOADS
     # ---------------------------
     def process_user_upload(self, uploaded_file):
         if uploaded_file is None:
@@ -103,8 +102,8 @@ class DualLegalRAG:
                 chunk_size=800,
                 chunk_overlap=100
             )
-
             chunks = splitter.split_documents(docs)
+
             st.session_state.user_db = FAISS.from_documents(
                 chunks, self.embeddings
             )
@@ -116,7 +115,7 @@ class DualLegalRAG:
             return f"Error loading PDF: {e}"
 
     # ---------------------------
-    #        RETRIEVAL
+    #         RETRIEVAL
     # ---------------------------
     def retrieve(self, query):
         context_parts = []
@@ -124,27 +123,25 @@ class DualLegalRAG:
         # --- BASE IPC ---
         if st.session_state.base_db:
             try:
-                results = st.session_state.base_db.similarity_search(query, k=3)
-                if results:
-                    ipc_context = "\n".join(r.page_content for r in results)
-                    context_parts.append(f"--- IPC ---\n{ipc_context}")
+                ipc_results = st.session_state.base_db.similarity_search(query, k=3)
+                text = "\n".join(doc.page_content for doc in ipc_results)
+                context_parts.append(f"--- IPC ---\n{text}")
             except:
                 pass
 
         # --- USER DOC ---
         if st.session_state.user_db:
             try:
-                results = st.session_state.user_db.similarity_search(query, k=3)
-                if results:
-                    user_context = "\n".join(r.page_content for r in results)
-                    context_parts.append(f"--- USER DOCUMENT ---\n{user_context}")
+                usr_results = st.session_state.user_db.similarity_search(query, k=3)
+                text = "\n".join(doc.page_content for doc in usr_results)
+                context_parts.append(f"--- USER DOCUMENT ---\n{text}")
             except:
                 pass
 
         return "\n\n".join(context_parts)
 
     # ---------------------------
-    #        CHAT PROCESS
+    #           CHAT
     # ---------------------------
     def chat(self, message):
         context = self.retrieve(message)
@@ -152,15 +149,12 @@ class DualLegalRAG:
         if context:
             system_msg = (
                 "You are a Senior Indian Legal Advisor. "
-                "Answer ONLY using the provided legal context."
+                "Answer ONLY using the provided context."
             )
             user_msg = f"CONTEXT:\n{context}\n\nQUESTION: {message}"
-
             st.expander("Context Used").markdown(context)
         else:
-            system_msg = (
-                "You are a legal expert. No documents available."
-            )
+            system_msg = "You are a legal expert. No documents available."
             user_msg = message
 
         try:
@@ -172,15 +166,16 @@ class DualLegalRAG:
                 ],
                 temperature=0.2,
             )
+
             return response.choices[0].message.content
 
         except Exception as e:
             return f"API Error: {e}"
 
 
-# ==============================
-#        STREAMLIT UI
-# ==============================
+# =======================================
+#           STREAMLIT UI
+# =======================================
 st.set_page_config(page_title="Dual RAG Legal Assistant", layout="centered")
 st.title("⚖️ Dual RAG Legal Assistant")
 
@@ -191,20 +186,21 @@ if "rag_engine" not in st.session_state:
 rag = st.session_state.rag_engine
 
 
-# --------------------------
-#       SIDEBAR UPLOAD
-# --------------------------
+# -------------------------
+#     SIDEBAR UPLOAD
+# -------------------------
 with st.sidebar:
     st.header("Upload Case PDF")
     uploaded = st.file_uploader("Upload PDF", type=["pdf"])
+
     if st.button("Process PDF"):
         msg = rag.process_user_upload(uploaded)
         st.info(msg)
 
 
-# --------------------------
-#        CHAT HISTORY
-# --------------------------
+# -------------------------
+#     CHAT HISTORY
+# -------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -212,9 +208,10 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# --------------------------
-#        CHAT INPUT
-# --------------------------
+
+# -------------------------
+#         CHAT BOX
+# -------------------------
 if prompt := st.chat_input("Ask a legal question..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
