@@ -159,7 +159,7 @@ class DualLegalRAG:
 
         try:
             response = self.client.chat.completions.create(
-                model="llama3-8b-8192",
+                model="llama-3.1-8b-instant",
                 messages=[
                     {"role": "system", "content": system_msg},
                     {"role": "user", "content": user_msg},
@@ -221,3 +221,4 @@ if prompt := st.chat_input("Ask a legal question..."):
         st.markdown(answer)
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
+
