@@ -1,8 +1,8 @@
 streamlit
 groq
-langchain-community
-langchain-text-splitters
-langchain-huggingface
+langchain-community==0.0.39
+langchain-text-splitters==0.0.2
+langchain-huggingface==0.0.6   # IMPORTANT
 faiss-cpu
 pypdf
 sentence-transformers
