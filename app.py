@@ -177,7 +177,7 @@ class DualLegalRAG:
 #           STREAMLIT UI
 # =======================================
 st.set_page_config(page_title="Legal Assistant", layout="centered")
-st.title("⚖️ Dual RAG Legal Assistant")
+st.title("⚖️ Legal Chatbot")
 
 # Initialize RAG engine
 if "rag_engine" not in st.session_state:
@@ -221,5 +221,6 @@ if prompt := st.chat_input("Ask a legal question..."):
         st.markdown(answer)
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
+
 
 
